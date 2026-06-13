@@ -1,0 +1,4 @@
+# Every change requires review from the maintainer.
+# Combined with branch protection (required code-owner review on `main`),
+# this means only @agentic-work can approve and merge pull requests.
+*       @agentic-work
