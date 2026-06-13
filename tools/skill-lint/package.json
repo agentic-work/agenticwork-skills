@@ -1,0 +1,22 @@
+{
+  "name": "@agenticwork/skill-lint",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Linter for LLM skills: static (frontmatter + example transpile/validate) and behavioral (model authors components, gated by the same transpile + inlineArtifactValidator).",
+  "license": "Apache-2.0",
+  "bin": {
+    "skill-lint": "./skill-lint.mjs"
+  },
+  "scripts": {
+    "lint": "node ./skill-lint.mjs --mode static",
+    "eval": "node ./skill-lint.mjs --mode behavioral",
+    "selftest": "node ./selftest.mjs",
+    "sync-check": "node ./sync-check.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "esbuild": "^0.25.10",
+    "yaml": "^2.6.1"
+  }
+}

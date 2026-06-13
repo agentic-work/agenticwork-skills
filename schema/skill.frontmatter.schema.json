@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/agentic-work/agenticwork-skills/schema/skill.frontmatter.schema.json",
+  "title": "AgenticWork Skill frontmatter",
+  "description": "The YAML frontmatter block at the top of every skills/<name>/SKILL.md. `name` + `description` are always resident in model context (progressive disclosure); everything else is metadata the lint/eval harness reads. Additional keys are rejected so a typo'd field fails CI instead of silently doing nothing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Skill id. MUST equal the parent directory name (kebab-case). Always resident in context.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "description": {
+      "type": "string",
+      "description": "WHEN to use the skill (a trigger), not HOW. Always resident in context, so keep it tight.",
+      "minLength": 20,
+      "maxLength": 1024
+    },
+    "version": {
+      "type": "string",
+      "description": "Optional semver of the skill content.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX id. Repo default is Apache-2.0; a skill that references an upstream under a different license declares it here.",
+      "default": "Apache-2.0"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Free-form discovery tags.",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "uniqueItems": true,
+      "maxItems": 24
+    },
+    "renderPath": {
+      "type": "string",
+      "description": "If set, the skill teaches authoring an artifact and its examples are gated through that render path's transpile + validator. `react-inline-artifact` = render_artifact kind:react -> parent esbuild-wasm transpile -> sandboxed iframe.",
+      "enum": ["react-inline-artifact"]
+    },
+    "imports": {
+      "type": "array",
+      "description": "The import allowlist (cage) the skill's authored components may use. MUST be a subset of the render path's allowlist; the lint cross-checks it against the live transpiler cage.",
+      "items": { "type": "string", "enum": ["react", "react-dom", "react-dom/client", "three"] },
+      "uniqueItems": true
+    },
+    "themeTokens": {
+      "type": "object",
+      "description": "Declares the theme contract the skill teaches. The lint asserts examples obey it.",
+      "additionalProperties": false,
+      "properties": {
+        "requireLiveAccent": {
+          "type": "boolean",
+          "description": "Examples must reference var(--cm-accent) and never bake a domain accent literal (#1187 class).",
+          "default": true
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "description": "Worked-example components (under examples/) the static lint must transpile clean AND pass the inline-artifact validator. Each entry is a relative .tsx path; an optional sibling <file>.meta.json may declare expectViewBox etc.",
+      "items": {
+        "type": "string",
+        "pattern": "^examples/[A-Za-z0-9_./-]+\\.tsx$"
+      },
+      "uniqueItems": true
+    },
+    "eval": {
+      "type": "object",
+      "description": "Behavioral-eval (LLM-linter) configuration. Read only by the gated behavioral job.",
+      "additionalProperties": false,
+      "properties": {
+        "tasks": {
+          "type": "array",
+          "description": "Relative paths to eval task prompts (eval/*.task.md). Each is fed to the model with the skill body; the authored output is gated by the same transpile + validator.",
+          "items": { "type": "string", "pattern": "^eval/[A-Za-z0-9_./-]+\\.task\\.md$" },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "runsPerTask": {
+          "type": "integer",
+          "description": "How many times each task is sampled (stochastic pass-rate).",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5
+        },
+        "passRateThreshold": {
+          "type": "number",
+          "description": "Minimum fraction of (task x run) attempts that must transpile + validate clean for the behavioral gate to pass.",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.8
+        }
+      },
+      "required": ["tasks"]
+    }
+  }
+}

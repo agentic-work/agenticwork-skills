@@ -1,0 +1,130 @@
+name: skills-ci
+
+# Linter for LLMs — two layers:
+#   static-lint  : every PR, no secrets. Frontmatter schema + body sections +
+#                  example transpile (esbuild cage) + inlineArtifactValidator.
+#   behavioral   : gated (label `behavioral-eval` or manual dispatch). A capable
+#                  model authors components from the skill + a task; output is
+#                  gated by the SAME transpile + validator; pass-rate must clear
+#                  the per-skill threshold. Reads the model endpoint from secrets.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_behavioral:
+        description: 'Also run the behavioral (model-backed) eval'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skills-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Layer 1 — STATIC. Cheap, deterministic, no secrets. The required gate.
+  # ---------------------------------------------------------------------------
+  static-lint:
+    name: static skill-lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/skill-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tools/skill-lint/package-lock.json
+
+      - name: Install lint tooling
+        run: npm ci
+
+      - name: Oracle drift guard (cage + palette match the platform)
+        run: node ./sync-check.mjs
+
+      - name: Self-test the runner (no model, no secrets)
+        run: node ./selftest.mjs
+
+      - name: Static skill-lint (frontmatter + sections + example transpile/validate)
+        run: node ./skill-lint.mjs --mode static
+
+  # ---------------------------------------------------------------------------
+  # Secret-free secret scan — runs on every PR alongside the static lint.
+  # ---------------------------------------------------------------------------
+  secret-scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
+          GITLEAKS_ENABLE_SUMMARY: 'true'
+
+  # ---------------------------------------------------------------------------
+  # Layer 2 — BEHAVIORAL. Costs model calls, so it is gated:
+  #   - PR carrying the `behavioral-eval` label, OR
+  #   - manual workflow_dispatch with run_behavioral=true.
+  # Requires static-lint green first, and the model secrets to be present.
+  # ---------------------------------------------------------------------------
+  behavioral-eval:
+    name: behavioral skill-eval (LLM linter)
+    needs: static-lint
+    if: >-
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'behavioral-eval')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_behavioral)
+    runs-on: ubuntu-latest
+    environment: behavioral-eval
+    defaults:
+      run:
+        working-directory: tools/skill-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tools/skill-lint/package-lock.json
+
+      - name: Install lint tooling
+        run: npm ci
+
+      - name: Guard — model secrets configured
+        env:
+          MODEL_API_BASE: ${{ secrets.MODEL_API_BASE }}
+          MODEL_ID: ${{ secrets.MODEL_ID }}
+        run: |
+          if [ -z "$MODEL_API_BASE" ] || [ -z "$MODEL_ID" ]; then
+            echo "::error::behavioral-eval requires MODEL_API_BASE and MODEL_ID repo/environment secrets"
+            exit 1
+          fi
+
+      - name: Behavioral eval (model authors → same transpile + validator gate)
+        env:
+          MODEL_API_BASE: ${{ secrets.MODEL_API_BASE }}
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+          MODEL_ID: ${{ secrets.MODEL_ID }}
+        run: node ./skill-lint.mjs --mode behavioral --json | tee behavioral-report.json
+
+      - name: Upload behavioral report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: behavioral-report
+          path: tools/skill-lint/behavioral-report.json
+          if-no-files-found: ignore
