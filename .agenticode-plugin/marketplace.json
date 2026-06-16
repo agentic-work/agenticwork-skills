@@ -1,0 +1,20 @@
+{
+  "name": "agenticwork-skills",
+  "owner": {
+    "name": "AgenticWork",
+    "email": "trent@agenticwork.io",
+    "url": "https://github.com/agentic-work/agenticwork-skills"
+  },
+  "metadata": {
+    "description": "AgentiWork's first-party skill marketplace — house-style skills for agenticode (skill authoring, inline artifacts, cleanroom auditing)."
+  },
+  "plugins": [
+    {
+      "name": "agenticwork-essentials",
+      "description": "AgentiWork essential skills bundle: skill-creator (house SKILL.md format), inline-artifact-author (theme-locked artifacts), and cleanroom-auditor (verbatim-derivative auditing).",
+      "version": "1.0.0",
+      "source": "./plugins/agenticwork-essentials",
+      "author": { "name": "AgenticWork", "email": "trent@agenticwork.io" }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "agenticwork-essentials",
+  "description": "AgentiWork essential skills: skill authoring, inline artifacts, and cleanroom auditing.",
+  "version": "1.0.0",
+  "author": { "name": "AgenticWork", "email": "trent@agenticwork.io" },
+  "license": "MIT",
+  "keywords": ["agenticwork", "skills", "cleanroom", "authoring", "artifacts"]
+}
